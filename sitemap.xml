@@ -2,10 +2,23 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>http://localhost:1313/categories/</loc>
+    <loc>https://blog.lanpang.top/</loc>
+    <lastmod>2025-02-20T14:38:40+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/</loc>
+    <loc>https://blog.lanpang.top/posts/</loc>
+    <lastmod>2025-02-20T14:38:40+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/</loc>
+    <loc>https://blog.lanpang.top/posts/patroni-for-ha-pg/</loc>
+    <lastmod>2025-02-20T14:38:40+08:00</lastmod>
+  </url><url>
+    <loc>https://blog.lanpang.top/posts/configure-golang-environment/</loc>
+    <lastmod>2024-07-29T10:19:57+08:00</lastmod>
+  </url><url>
+    <loc>https://blog.lanpang.top/about/</loc>
+    <lastmod>2024-07-29T10:04:35+08:00</lastmod>
+  </url><url>
+    <loc>https://blog.lanpang.top/categories/</loc>
+  </url><url>
+    <loc>https://blog.lanpang.top/tags/</loc>
   </url>
 </urlset>

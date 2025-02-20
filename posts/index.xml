@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Home on 蓝胖的个人博客</title>
-    <link>https://blog.lanpang.top/</link>
-    <description>Recent content in Home on 蓝胖的个人博客</description>
+    <title>Posts on 蓝胖的个人博客</title>
+    <link>https://blog.lanpang.top/posts/</link>
+    <description>Recent content in Posts on 蓝胖的个人博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-cn</language>
-    <lastBuildDate>Thu, 20 Feb 2025 14:38:40 +0800</lastBuildDate><atom:link href="https://blog.lanpang.top/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Thu, 20 Feb 2025 14:38:40 +0800</lastBuildDate><atom:link href="https://blog.lanpang.top/posts/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>搭建 Patroni PostgreSQL 高可用集群 </title>
       <link>https://blog.lanpang.top/posts/patroni-for-ha-pg/</link>
@@ -36,18 +36,6 @@
 设置全局变量
 # golang export GOROOT=&amp;#34;/usr/local/go&amp;#34; export PATH=&amp;#34;$GOROOT/bin:$PATH&amp;#34; export GOPATH=&amp;#34;$HOME/go&amp;#34; export PATH=&amp;#34;$GOPATH/bin:$PATH&amp;#34; 使生效：`source /etc/profile
 优化配置 # 开启 go module ，默认在项目根目录下生成两个文件`go.mod`和`go.sum` go env -w GO111MODULE=on # Go1.13之后GOPROXY默认值为https://proxy.golang.org，在国内是无法访问的，因此一般会改成goproxy.cn go env -w GOPROXY=https://goproxy.cn,direct go env -w GOPROXY=https://mirrors.aliyun.com/goproxy/,direct go env -w GOPROXY=https://mirrors.cloud.tencent.com/go/,direct </description>
-      
-    </item>
-    
-    <item>
-      <title>关于</title>
-      <link>https://blog.lanpang.top/about/</link>
-      <pubDate>Mon, 29 Jul 2024 10:04:35 +0800</pubDate>
-      
-      <guid>https://blog.lanpang.top/about/</guid>
-      
-      <description>关于我 野生运维，会点开发，擅长兜底，定居武汉。
-联系我 Email: hxjagf@qq.com </description>
       
     </item>
     

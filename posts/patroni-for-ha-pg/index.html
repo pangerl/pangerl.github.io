@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-cn"><head><meta charset="utf-8">
+<meta http-equiv="content-type" content="text/html">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title itemprop="name">搭建 Patroni PostgreSQL 高可用集群  | 蓝胖的个人博客</title>
+<meta property="og:title" content="搭建 Patroni PostgreSQL 高可用集群  | 蓝胖的个人博客" />
+<meta name="twitter:title" content="搭建 Patroni PostgreSQL 高可用集群  | 蓝胖的个人博客" />
+<meta itemprop="name" content="搭建 Patroni PostgreSQL 高可用集群  | 蓝胖的个人博客" />
+<meta name="application-name" content="搭建 Patroni PostgreSQL 高可用集群  | 蓝胖的个人博客" />
+<meta property="og:site_name" content="蓝胖的博客" />
+
+<meta name="description" content="Minimal Hugo blog theme with light and dark mode support">
+<meta itemprop="description" content="Minimal Hugo blog theme with light and dark mode support" />
+<meta property="og:description" content="Minimal Hugo blog theme with light and dark mode support" />
+<meta name="twitter:description" content="Minimal Hugo blog theme with light and dark mode support" />
+
+<meta property="og:locale" content="zh-cn" />
+<meta name="language" content="zh-cn" />
+
+  <link rel="alternate" hreflang="zh-cn" href="https://blog.lanpang.top/posts/patroni-for-ha-pg/" title="中文" />
+
+
+
+
+
+    
+    
+    
+
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content=2025-02-20T14:38:40&#43;0800 />
+    <meta property="article:published_time" content=2025-02-20T14:38:40&#43;0800 />
+    <meta property="og:url" content="https://blog.lanpang.top/posts/patroni-for-ha-pg/" />
+
+    
+    <meta property="og:article:author" content="蓝胖" />
+    <meta property="article:author" content="蓝胖" />
+    <meta name="author" content="蓝胖" />
+    
+    
+
+    
+
+    <script defer type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "Article",
+        "headline": "搭建 Patroni PostgreSQL 高可用集群 ",
+        "author": {
+        "@type": "Person",
+        "name": ""
+        },
+        "datePublished": "2025-02-20",
+        "description": "",
+        "wordCount":  997 ,
+        "mainEntityOfPage": "True",
+        "dateModified": "2025-02-20",
+        "image": {
+        "@type": "imageObject",
+        "url": ""
+        },
+        "publisher": {
+        "@type": "Organization",
+        "name": "蓝胖的个人博客"
+        }
+    }
+    </script>
+
+
+<meta name="generator" content="Hugo 0.129.0">
+
+    
+
+    <link rel="canonical" href="https://blog.lanpang.top/posts/patroni-for-ha-pg/">
+    <link href="/style.min.d43bc6c79baa87f006efb2b92be952faeedeb1a3ab626c1d6abda52eae049355.css" rel="stylesheet">
+    <link href="/code-highlight.min.706d31975fec544a864cb7f0d847a73ea55ca1df91bf495fd12a177138d807cf.css" rel="stylesheet">
+
+    
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+
+
+
+<link rel="manifest" href="https://blog.lanpang.top/site.webmanifest">
+
+<meta name="msapplication-config" content="/browserconfig.xml">
+<meta name="msapplication-TileColor" content="#2d89ef">
+<meta name="theme-color" content="#434648">
+
+    
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
+
+    
+    
+  
+
+</head>
+<body data-theme = "dark" class="notransition">
+
+<script src="/js/theme.min.8961c317c5b88b953fe27525839672c9343f1058ab044696ca225656c8ba2ab0.js" integrity="sha256-iWHDF8W4i5U/4nUlg5ZyyTQ/EFirBEaWyiJWVsi6KrA="></script>
+
+<div class="navbar" role="navigation">
+    <nav class="menu" aria-label="Main Navigation">
+        <a href="https://blog.lanpang.top/" class="logo">
+            <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" 
+viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" 
+stroke-linejoin="round" class="feather feather-home">
+<title></title>
+<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+<polyline points="9 22 9 12 15 12 15 22"></polyline>
+</svg>
+        </a>
+        <input type="checkbox" id="menu-trigger" class="menu-trigger" />
+        <label for="menu-trigger">
+            <span class="menu-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" stroke="currentColor" fill="none" viewBox="0 0 14 14"><title>Menu</title><path stroke-linecap="round" stroke-linejoin="round" d="M10.595 7L3.40726 7"></path><path stroke-linecap="round" stroke-linejoin="round" d="M10.5096 3.51488L3.49301 3.51488"></path><path stroke-linecap="round" stroke-linejoin="round" d="M10.5096 10.4851H3.49301"></path><path stroke-linecap="round" stroke-linejoin="round" d="M0.5 12.5V1.5C0.5 0.947715 0.947715 0.5 1.5 0.5H12.5C13.0523 0.5 13.5 0.947715 13.5 1.5V12.5C13.5 13.0523 13.0523 13.5 12.5 13.5H1.5C0.947715 13.5 0.5 13.0523 0.5 12.5Z"></path></svg>
+            </span>
+        </label>
+
+        <div class="trigger">
+            <ul class="trigger-container">
+                
+                
+                <li>
+                    <a class="menu-link " href="/">
+                        主页
+                    </a>
+                    
+                </li>
+                
+                <li>
+                    <a class="menu-link active" href="/posts/">
+                        博客
+                    </a>
+                    
+                </li>
+                
+                <li>
+                    <a class="menu-link " href="/about/">
+                        关于
+                    </a>
+                    
+                </li>
+                
+                <li class="menu-separator">
+                    <span>|</span>
+                </li>
+                
+                
+            </ul>
+            <a id="mode" href="#">
+                <svg xmlns="http://www.w3.org/2000/svg" class="mode-sunny" width="21" height="21" viewBox="0 0 14 14" stroke-width="1">
+<title>LIGHT</title><g><circle cx="7" cy="7" r="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></circle><line x1="7" y1="0.5" x2="7" y2="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="2.4" y1="2.4" x2="3.82" y2="3.82" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="0.5" y1="7" x2="2.5" y2="7" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="2.4" y1="11.6" x2="3.82" y2="10.18" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="7" y1="13.5" x2="7" y2="11.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="11.6" y1="11.6" x2="10.18" y2="10.18" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="13.5" y1="7" x2="11.5" y2="7" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="11.6" y1="2.4" x2="10.18" y2="3.82" fill="none" stroke-linecap="round" stroke-linejoin="round"></line></g></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="mode-moon" width="21" height="21" viewBox="0 0 14 14" stroke-width="1">
+<title>DARK</title><g><circle cx="7" cy="7" r="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></circle><line x1="7" y1="0.5" x2="7" y2="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="2.4" y1="2.4" x2="3.82" y2="3.82" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="0.5" y1="7" x2="2.5" y2="7" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="2.4" y1="11.6" x2="3.82" y2="10.18" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="7" y1="13.5" x2="7" y2="11.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="11.6" y1="11.6" x2="10.18" y2="10.18" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="13.5" y1="7" x2="11.5" y2="7" fill="none" stroke-linecap="round" stroke-linejoin="round"></line><line x1="11.6" y1="2.4" x2="10.18" y2="3.82" fill="none" stroke-linecap="round" stroke-linejoin="round"></line></g></svg>
+            </a>
+        </div>
+    </nav>
+</div>
+
+<div class="wrapper post">
+    <main class="page-content" aria-label="Content">
+        <article>
+            <header class="header">
+                <h1 class="header-title">搭建 Patroni PostgreSQL 高可用集群 </h1>
+                
+                
+                <div class="post-meta">
+                    <time datetime="2025-02-20T14:38:40&#43;08:00" itemprop="datePublished"> Feb 20, 2025 </time>
+                </div>
+                
+            </header>
+            
+    
+    <details class="toc" ZgotmplZ>
+        <summary><b></b></summary>
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#服务规划">服务规划</a></li>
+    <li><a href="#准备工作">准备工作</a></li>
+    <li><a href="#部署-pg14">部署 PG14</a>
+      <ul>
+        <li><a href="#安装pg">安装PG</a></li>
+        <li><a href="#安装-postgis">安装 Postgis</a></li>
+        <li><a href="#初始化">初始化</a></li>
+      </ul>
+    </li>
+    <li><a href="#部署-etcd">部署 ETCD</a>
+      <ul>
+        <li><a href="#时间同步">时间同步</a></li>
+        <li><a href="#yum-安装">YUM 安装</a></li>
+        <li><a href="#配置文件">配置文件</a></li>
+        <li><a href="#启动测试">启动测试</a></li>
+      </ul>
+    </li>
+    <li><a href="#部署-patroni">部署 Patroni</a>
+      <ul>
+        <li><a href="#pip-安装">PIP 安装</a></li>
+        <li><a href="#yum-安装-1">YUM 安装</a></li>
+        <li><a href="#离线包推荐">离线包(推荐)</a></li>
+        <li><a href="#配置文件-1">配置文件</a></li>
+        <li><a href="#启动集群">启动集群</a>
+          <ul>
+            <li><a href="#手动启动">手动启动</a></li>
+            <li><a href="#systemd">systemd</a></li>
+          </ul>
+        </li>
+        <li><a href="#检查状态">检查状态</a></li>
+      </ul>
+    </li>
+    <li><a href="#haproxy">HAProxy</a>
+      <ul>
+        <li><a href="#yum-安装-2">YUM 安装</a></li>
+        <li><a href="#配置文件-2">配置文件</a></li>
+        <li><a href="#启动验证">启动验证</a></li>
+        <li><a href="#负载均衡">负载均衡</a></li>
+      </ul>
+    </li>
+    <li><a href="#高可用验证">高可用验证</a>
+      <ul>
+        <li><a href="#主动切换">主动切换</a></li>
+        <li><a href="#关停服务">关停服务</a>
+          <ul>
+            <li><a href="#关停-pg">关停 PG</a></li>
+            <li><a href="#关停-patroni">关停 patroni</a></li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </details>
+            <div class="page-content">
+                <blockquote>
+<p>项目地址：https://github.com/patroni/patroni</p>
+<p>官方文档：https://patroni.readthedocs.io/en/latest/</p>
+<p>中文手册：https://postgres-cn.github.io/patroni-doccn/</p>
+<p>参考：<a href="https://docs.percona.com/postgresql/14/solutions/ha-setup-yum.html#configure-patroni">Percona Documentation</a></p>
+</blockquote>
+<h2 id="服务规划">服务规划</h2>
+<table>
+<thead>
+<tr>
+<th><strong>hostname</strong></th>
+<th><strong>ip</strong></th>
+<th><strong>服务</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>node1</td>
+<td>172.17.83.2</td>
+<td>etcd,postgresql,Patroni,haproxy</td>
+</tr>
+<tr>
+<td>node2</td>
+<td>172.17.83.8</td>
+<td>etcd,postgresql,Patroni,haproxy</td>
+</tr>
+<tr>
+<td>node3</td>
+<td>172.17.83.12</td>
+<td>etcd,postgresql,Patroni,haproxy</td>
+</tr>
+</tbody>
+</table>
+<h2 id="准备工作">准备工作</h2>
+<p><strong>调整 hostname</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 修改 hostname</span>
+</span></span><span class="line"><span class="cl">hostnamectl set-hostname node1
+</span></span><span class="line"><span class="cl"><span class="c1"># 修改 hosts文件 /etc/hosts</span>
+</span></span><span class="line"><span class="cl">172.17.83.2 node1
+</span></span><span class="line"><span class="cl">172.17.83.8 node2
+</span></span><span class="line"><span class="cl">172.17.83.12 node3
+</span></span></code></pre></div><p><strong>Watchdog</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 加载 `softdog` 内核模块</span>
+</span></span><span class="line"><span class="cl">modprobe softdog
+</span></span><span class="line"><span class="cl">chown postgres /dev/watchdog
+</span></span><span class="line"><span class="cl"><span class="c1"># 确保 Watchdog 设备文件存在</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@node2 pgsql<span class="o">]</span><span class="c1"># ll /dev/watchdog</span>
+</span></span><span class="line"><span class="cl">crw------- <span class="m">1</span> postgres root 10, <span class="m">130</span> 2月  <span class="m">12</span> 09:54 /dev/watchdog
+</span></span></code></pre></div><h2 id="部署-pg14">部署 PG14</h2>
+<h3 id="安装pg">安装PG</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 更新系统包</span>
+</span></span><span class="line"><span class="cl">yum install -y epel-release
+</span></span><span class="line"><span class="cl">yum update -y
+</span></span><span class="line"><span class="cl"><span class="c1"># 安装pg</span>
+</span></span><span class="line"><span class="cl">yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm  
+</span></span><span class="line"><span class="cl">yum install -y postgresql14-server
+</span></span></code></pre></div><h3 id="安装-postgis">安装 Postgis</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 清理重复的包</span>
+</span></span><span class="line"><span class="cl">yum install yum-utils -y
+</span></span><span class="line"><span class="cl">package-cleanup --dupes
+</span></span><span class="line"><span class="cl"><span class="c1"># Postgis</span>
+</span></span><span class="line"><span class="cl">yum install -y zlib-devel openssl postgis33_14 postgis33_14-utils
+</span></span></code></pre></div><h3 id="初始化">初始化</h3>
+<p><strong>数据目录</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">mkdir -p /data/pgsql/
+</span></span><span class="line"><span class="cl">touch /data/pgsql/patroni.yml
+</span></span><span class="line"><span class="cl">chown -Rf postgres:postgres /data/pgsql
+</span></span></code></pre></div><h2 id="部署-etcd">部署 ETCD</h2>
+<blockquote>
+<p><a href="https://github.com/etcd-io/etcd">https://github.com/etcd-io/etcd</a></p>
+</blockquote>
+<p><strong>etcd 集群的节点时间一定要同步！</strong></p>
+<h3 id="时间同步">时间同步</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">yum install chrony -y
+</span></span><span class="line"><span class="cl">systemctl start chronyd.service
+</span></span><span class="line"><span class="cl">systemctl <span class="nb">enable</span> chronyd.service
+</span></span><span class="line"><span class="cl">systemctl status chronyd.service
+</span></span></code></pre></div><p><strong>配置文件</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-ini" data-lang="ini"><span class="line"><span class="cl"><span class="na">[root@VM-0-17-centos etcd]# egrep -v &#39;^#|^$&#39; /etc/chrony.conf</span>
+</span></span><span class="line"><span class="cl"><span class="na">server ntpupdate.tencentyun.com iburst</span>
+</span></span><span class="line"><span class="cl"><span class="na">driftfile /var/lib/chrony/drift</span>
+</span></span><span class="line"><span class="cl"><span class="na">makestep 1.0 3</span>
+</span></span><span class="line"><span class="cl"><span class="na">rtcsync</span>
+</span></span><span class="line"><span class="cl"><span class="na">logdir /var/log/chrony</span>
+</span></span></code></pre></div><h3 id="yum-安装">YUM 安装</h3>
+<p><strong>在线安装</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">yum -y install etcd
+</span></span></code></pre></div><p><strong>离线安装</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 制作离线包</span>
+</span></span><span class="line"><span class="cl">yumdownloader --destdir<span class="o">=</span>/tmp/etcd --resolve etcd
+</span></span><span class="line"><span class="cl"><span class="c1"># 安装</span>
+</span></span><span class="line"><span class="cl">rpm -ivh etcd-3.3.11-2.el7.centos.x86_64.rpm
+</span></span></code></pre></div><h3 id="配置文件">配置文件</h3>
+<pre><code>/etc/etcd/etcd.conf
+</code></pre>
+<p><strong>定义变量</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">NODE_NAME</span><span class="o">=</span><span class="sb">`</span>hostname -f<span class="sb">`</span>
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">NODE_IP</span><span class="o">=</span><span class="sb">`</span>hostname -i <span class="p">|</span> awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+</span></span></code></pre></div><p><strong>生成配置</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-ini" data-lang="ini"><span class="line"><span class="cl"><span class="na">echo &#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">ETCD_NAME</span><span class="o">=</span><span class="s">&#34;${NODE_NAME}&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">ETCD_DATA_DIR</span><span class="o">=</span><span class="s">&#34;/var/lib/etcd/default.etcd&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">ETCD_LISTEN_CLIENT_URLS</span><span class="o">=</span><span class="s">&#34;http://${NODE_IP}:2379,http://127.0.0.1:2379&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">ETCD_LISTEN_PEER_URLS</span><span class="o">=</span><span class="s">&#34;http://${NODE_IP}:2380&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">ETCD_INITIAL_ADVERTISE_PEER_URLS</span><span class="o">=</span><span class="s">&#34;http://${NODE_IP}:2380&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">ETCD_ADVERTISE_CLIENT_URLS</span><span class="o">=</span><span class="s">&#34;http://${NODE_IP}:2379&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">ETCD_INITIAL_CLUSTER_STATE</span><span class="o">=</span><span class="s">&#34;new&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">ETCD_INITIAL_CLUSTER_TOKEN</span><span class="o">=</span><span class="s">&#34;etcd-cluster&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">ETCD_INITIAL_CLUSTER</span><span class="o">=</span><span class="s">&#34;node1=http://172.17.83.2:2380,node2=http://172.17.83.8:2380,node3=http://172.17.83.12:2380&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="na">&#34; | sudo tee /etc/etcd/etcd.conf</span>
+</span></span></code></pre></div><h3 id="启动测试">启动测试</h3>
+<blockquote>
+<p>WARNING:
+Environment variable ETCDCTL_API is not set; defaults to etcdctl v2.
+Set environment variable ETCDCTL_API=3 to use v3 API or ETCDCTL_API=2 to use v2 API</p>
+</blockquote>
+<p><strong>设置环境变量</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">vim /etc/profile
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">ETCDCTL_API</span><span class="o">=</span><span class="m">3</span>
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">ENDPOINTS</span><span class="o">=</span>172.17.83.2:2379,172.17.83.8:2379,172.17.83.12:2379
+</span></span><span class="line"><span class="cl"><span class="c1"># 生效</span>
+</span></span><span class="line"><span class="cl"><span class="nb">source</span> /etc/profile
+</span></span></code></pre></div><p><strong>启动服务</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 关闭防火墙</span>
+</span></span><span class="line"><span class="cl">systemctl stop firewalld <span class="o">&amp;&amp;</span> systemctl disable firewalld
+</span></span><span class="line"><span class="cl"><span class="c1"># 启动etcd</span>
+</span></span><span class="line"><span class="cl">systemctl start etcd.service
+</span></span><span class="line"><span class="cl">systemctl <span class="nb">enable</span> etcd.service
+</span></span></code></pre></div><p><strong>检查状态</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 查看节点状态</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@node3 ~<span class="o">]</span><span class="c1"># etcdctl member list --write-out=table</span>
+</span></span><span class="line"><span class="cl">+------------------+---------+-------+--------------------------+--------------------------+
+</span></span><span class="line"><span class="cl"><span class="p">|</span>        ID        <span class="p">|</span> STATUS  <span class="p">|</span> NAME  <span class="p">|</span>        PEER ADDRS        <span class="p">|</span>       CLIENT ADDRS       <span class="p">|</span>
+</span></span><span class="line"><span class="cl">+------------------+---------+-------+--------------------------+--------------------------+
+</span></span><span class="line"><span class="cl"><span class="p">|</span> 94e289847b4c3e24 <span class="p">|</span> started <span class="p">|</span> node2 <span class="p">|</span>  http://172.17.83.8:2380 <span class="p">|</span>  http://172.17.83.8:2379 <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> 9e132ce4635c9d9d <span class="p">|</span> started <span class="p">|</span> node1 <span class="p">|</span>  http://172.17.83.2:2380 <span class="p">|</span>  http://172.17.83.2:2379 <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> e32396bcdee20faf <span class="p">|</span> started <span class="p">|</span> node3 <span class="p">|</span> http://172.17.83.12:2380 <span class="p">|</span> http://172.17.83.12:2379 <span class="p">|</span>
+</span></span><span class="line"><span class="cl">+------------------+---------+-------+--------------------------+--------------------------+
+</span></span><span class="line"><span class="cl">--------+-------------------------+
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@node3 ~<span class="o">]</span><span class="c1"># etcdctl endpoint status --endpoints=$ENDPOINTS --write-out=table</span>
+</span></span><span class="line"><span class="cl">+-------------------+------------------+---------+---------+-----------+-----------+------------+
+</span></span><span class="line"><span class="cl"><span class="p">|</span>     ENDPOINT      <span class="p">|</span>        ID        <span class="p">|</span> VERSION <span class="p">|</span> DB SIZE <span class="p">|</span> IS LEADER <span class="p">|</span> RAFT TERM <span class="p">|</span> RAFT INDEX <span class="p">|</span>
+</span></span><span class="line"><span class="cl">+-------------------+------------------+---------+---------+-----------+-----------+------------+
+</span></span><span class="line"><span class="cl"><span class="p">|</span>  172.17.83.2:2379 <span class="p">|</span> 9e132ce4635c9d9d <span class="p">|</span>  3.3.11 <span class="p">|</span>   <span class="m">20</span> kB <span class="p">|</span>     <span class="nb">false</span> <span class="p">|</span>       <span class="m">366</span> <span class="p">|</span>         <span class="m">10</span> <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span>  172.17.83.8:2379 <span class="p">|</span> 94e289847b4c3e24 <span class="p">|</span>  3.3.11 <span class="p">|</span>   <span class="m">20</span> kB <span class="p">|</span>     <span class="nb">false</span> <span class="p">|</span>       <span class="m">366</span> <span class="p">|</span>         <span class="m">10</span> <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> 172.17.83.12:2379 <span class="p">|</span> e32396bcdee20faf <span class="p">|</span>  3.3.11 <span class="p">|</span>   <span class="m">20</span> kB <span class="p">|</span>      <span class="nb">true</span> <span class="p">|</span>       <span class="m">366</span> <span class="p">|</span>         <span class="m">10</span> <span class="p">|</span>
+</span></span><span class="line"><span class="cl">+-------------------+------------------+---------+---------+-----------+-----------+------------+
+</span></span></code></pre></div><p><strong>数据操作</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 查询存储的所有key，并且前缀为&#39;/&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@VM-0-3-centos system<span class="o">]</span><span class="c1"># etcdctl get / --prefix</span>
+</span></span><span class="line"><span class="cl">/service/pg_patroni/config
+</span></span><span class="line"><span class="cl"><span class="o">{</span><span class="s2">&#34;loop_wait&#34;</span>:10,<span class="s2">&#34;retry_timeout&#34;</span>:10,<span class="s2">&#34;ttl&#34;</span>:30,<span class="s2">&#34;postgresql&#34;</span>:<span class="o">{</span><span class="s2">&#34;parameters&#34;</span>:<span class="o">{</span><span class="s2">&#34;listen_addresses&#34;</span>:<span class="s2">&#34;0.0.0.0&#34;</span>,<span class="s2">&#34;hot_standby&#34;</span>:<span class="s2">&#34;on&#34;</span>,<span class="s2">&#34;max_connections&#34;</span>:2000,<span class="s2">&#34;shared_buffers&#34;</span>:<span class="s2">&#34;4GB&#34;</span>,<span class="s2">&#34;max_locks_per_transaction&#34;</span>:64,<span class="s2">&#34;max_prepared_transactions&#34;</span>:0,<span class="s2">&#34;max_replication_slots&#34;</span>:10,<span class="s2">&#34;max_wal_senders&#34;</span>:10,<span class="s2">&#34;max_worker_processes&#34;</span>:8,<span class="s2">&#34;track_commit_timestamp&#34;</span>:<span class="s2">&#34;off&#34;</span>,<span class="s2">&#34;wal_keep_size&#34;</span>:<span class="s2">&#34;128MB&#34;</span>,<span class="s2">&#34;wal_level&#34;</span>:<span class="s2">&#34;replica&#34;</span>,<span class="s2">&#34;wal_log_hints&#34;</span>:<span class="s2">&#34;on&#34;</span><span class="o">}</span>,<span class="s2">&#34;use_pg_rewind&#34;</span>:true,<span class="s2">&#34;use_slots&#34;</span>:true<span class="o">}}</span>
+</span></span><span class="line"><span class="cl">/service/pg_patroni/initialize
+</span></span><span class="line"><span class="cl"><span class="m">7428520042617295490</span>
+</span></span><span class="line"><span class="cl">/service/pg_patroni/status
+</span></span><span class="line"><span class="cl"><span class="o">{</span><span class="s2">&#34;optime&#34;</span>:24414320,<span class="s2">&#34;slots&#34;</span>:<span class="o">{</span><span class="s2">&#34;patroni1&#34;</span>:24414320<span class="o">}</span>,<span class="s2">&#34;retain_slots&#34;</span>:<span class="o">[</span><span class="s2">&#34;patroni1&#34;</span><span class="o">]}</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 清除所有数据</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@VM-0-3-centos system<span class="o">]</span><span class="c1"># etcdctl del / --prefix</span>
+</span></span><span class="line"><span class="cl"><span class="m">3</span>
+</span></span></code></pre></div><h2 id="部署-patroni">部署 Patroni</h2>
+<p><strong>Patroni 依赖 Python3，必须 3.7 及以上版本</strong></p>
+<h3 id="pip-安装">PIP 安装</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install patroni<span class="o">[</span>psycopg3,etcd3<span class="o">]</span>
+</span></span></code></pre></div><h3 id="yum-安装-1">YUM 安装</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">yum install patroni patroni-etcd
+</span></span></code></pre></div><h3 id="离线包推荐">离线包(推荐)</h3>
+<p><strong>下载解压</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> /opt
+</span></span><span class="line"><span class="cl">wget https://private-1253767630.cos.ap-shanghai.myqcloud.com/tools/software/python3.8.tgz
+</span></span><span class="line"><span class="cl">tar zxf python3.8.tgz
+</span></span></code></pre></div><p><strong>配置环境变量</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">echo</span> <span class="nv">PATH</span><span class="o">=</span><span class="s1">&#39;/opt/python3.8/bin:$PATH&#39;</span> &gt;&gt; /etc/profile
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="nv">PATH</span><span class="o">=</span><span class="s1">&#39;/opt/python3.8/lib/python3.8/site-packages/bin:$PATH&#39;</span> &gt;&gt; /etc/profile
+</span></span><span class="line"><span class="cl"><span class="nb">source</span> /etc/profile
+</span></span></code></pre></div><p><strong>验证调试</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">[</span>root@node3 opt<span class="o">]</span><span class="c1"># python3.8 -V</span>
+</span></span><span class="line"><span class="cl">Python 3.8.20
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@node3 opt<span class="o">]</span><span class="c1"># patronictl --help</span>
+</span></span><span class="line"><span class="cl">Usage: patronictl <span class="o">[</span>OPTIONS<span class="o">]</span> COMMAND <span class="o">[</span>ARGS<span class="o">]</span>...
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  Command-line interface <span class="k">for</span> interacting with Patroni.
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Options:
+</span></span><span class="line"><span class="cl">  -c, --config-file TEXT     Configuration file
+</span></span><span class="line"><span class="cl">  -d, --dcs-url, --dcs TEXT  The DCS connect url
+</span></span><span class="line"><span class="cl">  -k, --insecure             Allow connections to SSL sites without certs
+</span></span><span class="line"><span class="cl">  --help                     Show this message and exit.
+</span></span></code></pre></div><h3 id="配置文件-1">配置文件</h3>
+<blockquote>
+<p><a href="https://patroni.readthedocs.io/en/latest/yaml_configuration.html">https://patroni.readthedocs.io/en/latest/yaml_configuration.html</a></p>
+</blockquote>
+<p><strong>定义变量</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">NODE_NAME</span><span class="o">=</span><span class="sb">`</span>hostname -f<span class="sb">`</span>
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">NODE_IP</span><span class="o">=</span><span class="sb">`</span>hostname -i <span class="p">|</span> awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+</span></span></code></pre></div><p><strong>生成配置</strong></p>
+<p><em>注意修改 postgres 用户的密码，pg_hba 网络的配置，etcd 的ip</em></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">scope: &#39;pg_patroni&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">namespace: /db/
+</span></span></span><span class="line"><span class="cl"><span class="s2">name: &#39;</span><span class="si">${</span><span class="nv">NODE_NAME</span><span class="si">}</span><span class="s2">&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">log:
+</span></span></span><span class="line"><span class="cl"><span class="s2">  format: &#39;%(asctime)s %(levelname)s: %(message)s&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">  level: INFO
+</span></span></span><span class="line"><span class="cl"><span class="s2">  max_queue_size: 1000
+</span></span></span><span class="line"><span class="cl"><span class="s2">  traceback_level: ERROR
+</span></span></span><span class="line"><span class="cl"><span class="s2">  type: plain
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">restapi:
+</span></span></span><span class="line"><span class="cl"><span class="s2">  connect_address: &#39;</span><span class="si">${</span><span class="nv">NODE_IP</span><span class="si">}</span><span class="s2">:8008&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">  listen: &#39;0.0.0.0:8008&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">etcd3:
+</span></span></span><span class="line"><span class="cl"><span class="s2">  hosts:
+</span></span></span><span class="line"><span class="cl"><span class="s2">  - 172.17.83.2:2379
+</span></span></span><span class="line"><span class="cl"><span class="s2">  - 172.17.83.8:2379
+</span></span></span><span class="line"><span class="cl"><span class="s2">  - 172.17.83.12:2379
+</span></span></span><span class="line"><span class="cl"><span class="s2">  retry_timeout: 30
+</span></span></span><span class="line"><span class="cl"><span class="s2">  ttl: 60
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">bootstrap:
+</span></span></span><span class="line"><span class="cl"><span class="s2">  dcs:
+</span></span></span><span class="line"><span class="cl"><span class="s2">    loop_wait: 10
+</span></span></span><span class="line"><span class="cl"><span class="s2">    retry_timeout: 10
+</span></span></span><span class="line"><span class="cl"><span class="s2">    ttl: 30
+</span></span></span><span class="line"><span class="cl"><span class="s2">    maximum_lag_on_failover: 1048576
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">    postgresql:
+</span></span></span><span class="line"><span class="cl"><span class="s2">      use_pg_rewind: true
+</span></span></span><span class="line"><span class="cl"><span class="s2">      use_slots: true
+</span></span></span><span class="line"><span class="cl"><span class="s2">      parameters:
+</span></span></span><span class="line"><span class="cl"><span class="s2">        hot_standby: &#39;on&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        max_connections: 2000
+</span></span></span><span class="line"><span class="cl"><span class="s2">        shared_buffers: 4GB
+</span></span></span><span class="line"><span class="cl"><span class="s2">        max_locks_per_transaction: 64
+</span></span></span><span class="line"><span class="cl"><span class="s2">        max_prepared_transactions: 0
+</span></span></span><span class="line"><span class="cl"><span class="s2">        max_replication_slots: 10
+</span></span></span><span class="line"><span class="cl"><span class="s2">        max_wal_senders: 10
+</span></span></span><span class="line"><span class="cl"><span class="s2">        max_worker_processes: 8
+</span></span></span><span class="line"><span class="cl"><span class="s2">        track_commit_timestamp: &#39;off&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        wal_keep_size: 5GB
+</span></span></span><span class="line"><span class="cl"><span class="s2">        wal_level: replica
+</span></span></span><span class="line"><span class="cl"><span class="s2">        wal_log_hints: &#39;on&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        max_wal_size: &#39;10GB&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        archive_mode: &#34;</span>on<span class="s2">&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        archive_timeout: 600s
+</span></span></span><span class="line"><span class="cl"><span class="s2">        archive_command: &#34;</span>cp -f %p /data/pgsql/data/archived/%f<span class="s2">&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">  initdb:
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - encoding: UTF8
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - locale: C
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - data-checksums
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">  pg_hba:
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - host all all 0.0.0.0/0 md5
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - host replication replicator 172.17.83.0/24 md5
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - host replication replicator 127.0.0.1/32 trust
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">postgresql:
+</span></span></span><span class="line"><span class="cl"><span class="s2">  listen: &#39;0.0.0.0:5432&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">  connect_address: &#39;</span><span class="si">${</span><span class="nv">NODE_IP</span><span class="si">}</span><span class="s2">:5432&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">  bin_dir: &#39;/usr/pgsql-14/bin/&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">  data_dir: &#39;/data/pgsql/data/&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">  parameters:
+</span></span></span><span class="line"><span class="cl"><span class="s2">    password_encryption: scram-sha-256
+</span></span></span><span class="line"><span class="cl"><span class="s2">    unix_socket_directories: &#34;</span>/var/run/postgresql/<span class="s2">&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">  authentication:
+</span></span></span><span class="line"><span class="cl"><span class="s2">    replication:
+</span></span></span><span class="line"><span class="cl"><span class="s2">      password: &#39;replicator&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">      username: replicator
+</span></span></span><span class="line"><span class="cl"><span class="s2">    superuser:
+</span></span></span><span class="line"><span class="cl"><span class="s2">      password: &#39;xxxx&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">      username: postgres
+</span></span></span><span class="line"><span class="cl"><span class="s2">  create_replica_methods:
+</span></span></span><span class="line"><span class="cl"><span class="s2">      - basebackup
+</span></span></span><span class="line"><span class="cl"><span class="s2">  basebackup:
+</span></span></span><span class="line"><span class="cl"><span class="s2">      checkpoint: &#39;fast&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">watchdog:
+</span></span></span><span class="line"><span class="cl"><span class="s2">  mode: automatic
+</span></span></span><span class="line"><span class="cl"><span class="s2">  device: /dev/watchdog
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">tags:
+</span></span></span><span class="line"><span class="cl"><span class="s2">  clonefrom: false
+</span></span></span><span class="line"><span class="cl"><span class="s2">  failover_priority: 1
+</span></span></span><span class="line"><span class="cl"><span class="s2">  noloadbalance: false
+</span></span></span><span class="line"><span class="cl"><span class="s2">  nostream: false
+</span></span></span><span class="line"><span class="cl"><span class="s2">  nosync: false
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">&#34;</span> <span class="p">|</span> sudo tee /data/pgsql/patroni.yml
+</span></span></code></pre></div><h3 id="启动集群">启动集群</h3>
+<h4 id="手动启动">手动启动</h4>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 切换 postgres</span>
+</span></span><span class="line"><span class="cl">su postgres
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> /data/pgsql/
+</span></span><span class="line"><span class="cl">nohup patroni patroni.yml &gt; patroni.log 2&gt;<span class="p">&amp;</span><span class="m">1</span> <span class="p">&amp;</span>
+</span></span></code></pre></div><h4 id="systemd">systemd</h4>
+<p><strong>创建启动文件</strong></p>
+<p><em>注意修改 patroni 可执行文件路径</em></p>
+<p><code>/etc/systemd/system/percona-patroni.service</code></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">[Unit]
+</span></span></span><span class="line"><span class="cl"><span class="s2">Description=Patroni PostgreSQL HA
+</span></span></span><span class="line"><span class="cl"><span class="s2">After=network.target
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">[Service]
+</span></span></span><span class="line"><span class="cl"><span class="s2">Type=simple
+</span></span></span><span class="line"><span class="cl"><span class="s2">User=postgres
+</span></span></span><span class="line"><span class="cl"><span class="s2">Group=postgres
+</span></span></span><span class="line"><span class="cl"><span class="s2">ExecStart=/opt/python3.8/lib/python3.8/site-packages/bin/patroni /data/pgsql/patroni.yml
+</span></span></span><span class="line"><span class="cl"><span class="s2">ExecReload=/bin/kill -HUP </span><span class="nv">$MAINPID</span><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">Restart=always
+</span></span></span><span class="line"><span class="cl"><span class="s2">TimeoutSec=300
+</span></span></span><span class="line"><span class="cl"><span class="s2">LimitNOFILE=4096
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">[Install]
+</span></span></span><span class="line"><span class="cl"><span class="s2">WantedBy=multi-user.target
+</span></span></span><span class="line"><span class="cl"><span class="s2">&#34;</span> <span class="p">|</span> sudo tee /etc/systemd/system/patroni.service
+</span></span></code></pre></div><p><strong>启动服务</strong></p>
+<p><em>先启动一个 node1 节点，服务启动后，再依次启动其他 node节点</em></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl daemon-reload
+</span></span><span class="line"><span class="cl">systemctl start patroni
+</span></span></code></pre></div><h3 id="检查状态">检查状态</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">[</span>root@node1 pgsql<span class="o">]</span><span class="c1"># patronictl -c /data/pgsql/patroni.yml list</span>
+</span></span><span class="line"><span class="cl">+ Cluster: pg_patroni <span class="o">(</span>7470725539388708392<span class="o">)</span> --+----+-----------+----------------------+
+</span></span><span class="line"><span class="cl"><span class="p">|</span> Member <span class="p">|</span> Host         <span class="p">|</span> Role    <span class="p">|</span> State     <span class="p">|</span> TL <span class="p">|</span> Lag in MB <span class="p">|</span> Tags                 <span class="p">|</span>
+</span></span><span class="line"><span class="cl">+--------+--------------+---------+-----------+----+-----------+----------------------+
+</span></span><span class="line"><span class="cl"><span class="p">|</span> node1  <span class="p">|</span> 172.17.83.2  <span class="p">|</span> Replica <span class="p">|</span> streaming <span class="p">|</span>  <span class="m">1</span> <span class="p">|</span>         <span class="m">0</span> <span class="p">|</span> failover_priority: <span class="m">1</span> <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> node2  <span class="p">|</span> 172.17.83.8  <span class="p">|</span> Leader  <span class="p">|</span> running   <span class="p">|</span>  <span class="m">1</span> <span class="p">|</span>           <span class="p">|</span> failover_priority: <span class="m">1</span> <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> node3  <span class="p">|</span> 172.17.83.12 <span class="p">|</span> Replica <span class="p">|</span> streaming <span class="p">|</span>  <span class="m">1</span> <span class="p">|</span>         <span class="m">0</span> <span class="p">|</span> failover_priority: <span class="m">1</span> <span class="p">|</span>
+</span></span><span class="line"><span class="cl">+--------+--------------+---------+-----------+----+-----------+----------------------+
+</span></span></code></pre></div><h2 id="haproxy">HAProxy</h2>
+<h3 id="yum-安装-2">YUM 安装</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">yum install haproxy -y
+</span></span><span class="line"><span class="cl"><span class="c1"># 制作离线包</span>
+</span></span><span class="line"><span class="cl">yumdownloader --destdir<span class="o">=</span>/tmp/haproxy --resolve haproxy
+</span></span></code></pre></div><h3 id="配置文件-2">配置文件</h3>
+<p><code>/etc/haproxy/haproxy.cfg</code></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cfg" data-lang="cfg"><span class="line"><span class="cl"><span class="na">global</span>
+</span></span><span class="line"><span class="cl">    <span class="na">maxconn 2000</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="na">defaults</span>
+</span></span><span class="line"><span class="cl">    <span class="na">log global</span>
+</span></span><span class="line"><span class="cl">    <span class="na">mode tcp</span>
+</span></span><span class="line"><span class="cl">    <span class="na">retries 2</span>
+</span></span><span class="line"><span class="cl">    <span class="na">timeout client 40m</span>
+</span></span><span class="line"><span class="cl">    <span class="na">timeout connect 4s</span>
+</span></span><span class="line"><span class="cl">    <span class="na">timeout server 40m</span>
+</span></span><span class="line"><span class="cl">    <span class="na">timeout check 5s</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="na">listen stats</span>
+</span></span><span class="line"><span class="cl">    <span class="na">bind *:8089</span>
+</span></span><span class="line"><span class="cl">    <span class="na">mode http</span>
+</span></span><span class="line"><span class="cl">    <span class="na">stats enable</span>
+</span></span><span class="line"><span class="cl">    <span class="na">stats uri /stats</span>
+</span></span><span class="line"><span class="cl">    <span class="na">stats refresh 10s</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="na">listen primary</span>
+</span></span><span class="line"><span class="cl">    <span class="na">bind *:5000</span>
+</span></span><span class="line"><span class="cl">    <span class="na">option httpchk /primary </span>
+</span></span><span class="line"><span class="cl">    <span class="na">http-check expect status 200</span>
+</span></span><span class="line"><span class="cl">    <span class="na">default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions</span>
+</span></span><span class="line"><span class="cl">    <span class="na">server node1 node1:5432 maxconn 2000 check port 8008</span>
+</span></span><span class="line"><span class="cl">    <span class="na">server node2 node2:5432 maxconn 2000 check port 8008</span>
+</span></span><span class="line"><span class="cl">    <span class="na">server node3 node3:5432 maxconn 2000 check port 8008</span>
+</span></span></code></pre></div><h3 id="启动验证">启动验证</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 启动服务</span>
+</span></span><span class="line"><span class="cl">systemctl <span class="nb">enable</span> --now haproxy
+</span></span></code></pre></div><p><strong>监控管理端：http://172.17.83.8:8089/stats</strong></p>
+<p><img alt="image.png|800" src="https://raw.githubusercontent.com/pangerl/notes-img/main/picgo/20250213154223.png"></p>
+<h3 id="负载均衡">负载均衡</h3>
+<p><strong>haproxy 的 5000 端口 会转发到 PG 集群的 Leader 节点的 5432</strong></p>
+<p><strong>再使用负载均衡服务，转发 node1，node2，node3 的 5000 端口</strong></p>
+<p><strong>应用服务配置负载均衡的地址，即可实现PG高可用。</strong></p>
+<h2 id="高可用验证">高可用验证</h2>
+<h3 id="主动切换">主动切换</h3>
+<p><strong>检查集群状态，node3 为 Leader 节点</strong></p>
+<p><img alt="image.png|800" src="https://raw.githubusercontent.com/pangerl/notes-img/main/picgo/20250213155323.png"></p>
+<p><strong>切换节点，需指定集群名称：pg_patroni</strong></p>
+<p><code>patronictl -c /data/pgsql/patroni.yml switchover pg_patroni</code></p>
+<p><img alt="image.png|800" src="https://raw.githubusercontent.com/pangerl/notes-img/main/picgo/20250213155608.png"></p>
+<p><strong>检查节点状态，成功切换为 node1 为 Leader 节点</strong></p>
+<p><img alt="image.png|800" src="https://raw.githubusercontent.com/pangerl/notes-img/main/picgo/20250213155717.png"></p>
+<h3 id="关停服务">关停服务</h3>
+<h4 id="关停-pg">关停 PG</h4>
+<p><strong>使用 kill 命令，停止 postgresql 进程，patroni 会主动拉起 postgresql 服务。</strong></p>
+<h4 id="关停-patroni">关停 patroni</h4>
+<p><strong>停止 patroni 服务，会同时停止 postgresql 进程，PG 集群会重新选主，并剔除挂掉的节点。
+重新启动 patroni 服务，PG 集群恢复1主2从，自动同步数据。</strong></p>
+<p><code>systemctl stop patroni</code></p>
+<p><img alt="image.png|800" src="https://raw.githubusercontent.com/pangerl/notes-img/main/picgo/20250213111655.png"></p>
+<p><code>systemctl start patroni</code></p>
+<p><img alt="image.png|800" src="https://raw.githubusercontent.com/pangerl/notes-img/main/picgo/20250213111759.png"></p>
+
+            </div>
+        </article></main>
+</div>
+<footer class="footer">
+    <span class="footer_item"> </span>
+    &nbsp;
+
+    <div class="footer_social-icons">
+<a href="mailto:hxjagf@qq.com" target="_blank" rel="noopener noreferrer me"
+    title="Email">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 21" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+    <polyline points="22,6 12,13 2,6"></polyline>
+</svg>
+</a>
+<a href="https://github.com/pangerl" target="_blank" rel="noopener noreferrer me"
+    title="Github">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path
+        d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+    </path>
+</svg>
+</a>
+<a href="/index.xml" target="_blank" rel="noopener noreferrer me"
+    title="Rss">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 11a9 9 0 0 1 9 9" />
+    <path d="M4 4a16 16 0 0 1 16 16" />
+    <circle cx="5" cy="19" r="1" />
+</svg>
+</a>
+</div>
+    <small class="footer_copyright">
+        © 2025 蓝胖.
+        
+    </small>
+</footer><a href="#" title="" id="totop">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" stroke="currentColor" viewBox="0 96 960 960">
+    <path d="M283 704.739 234.261 656 480 410.261 725.739 656 677 704.739l-197-197-197 197Z"/>
+</svg>
+
+</a>
+
+
+    
+
+
+
+
+    
+    
+        
+    
+
+    
+    
+        
+    
+
+
+
+    
+    <script src="https://blog.lanpang.top/js/main.min.35f435a5d8eac613c52daa28d8af544a4512337d3e95236e4a4978417b8dcb2f.js" integrity="sha256-NfQ1pdjqxhPFLaoo2K9USkUSM30&#43;lSNuSkl4QXuNyy8="></script>
+
+    
+
+</body>
+</html>
